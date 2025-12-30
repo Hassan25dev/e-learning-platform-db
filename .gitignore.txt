@@ -1,0 +1,22 @@
+# SQL & Database Files
+*.sql~
+*.log
+*.bak
+*.tmp
+*.swp
+.DS_Store
+Thumbs.db
+
+# IDE / Editor files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db

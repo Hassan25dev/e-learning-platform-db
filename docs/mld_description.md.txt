@@ -1,0 +1,152 @@
+# 📘 Modèle Logique de Données (MLD) – Plateforme E-Learning
+
+> Ce document décrit la transformation du modèle conceptuel (MCD) en modèle logique relationnel (MLD), conforme aux règles de normalisation (1NF, 2NF, 3NF).  
+> Le MLD est directement implémentable en SQL (MySQL/PostgreSQL) et sert de base à la création des tables et des relations dans la base de données.
+
+---
+
+## 🔁 Règles de Transformation MCD → MLD
+
+### 1. **Entité → Table**
+Chaque entité du MCD devient une table SQL avec :
+- Une **clé primaire** (souvent un ID auto-incrémenté),
+- Les **attributs** comme colonnes,
+- Les **contraintes** (NOT NULL, CHECK, etc.) si pertinentes.
+
+### 2. **Association 1:1 ou 1:N → Clé étrangère**
+- L’entité du côté “N” reçoit la clé primaire de l’entité du côté “1” comme **clé étrangère**.
+- Exemple : `Formation` → `Sequence` : `id_formation` dans `Sequence`.
+
+### 3. **Association N:N → Table d’association**
+- Création d’une **table intermédiaire** avec :
+  - Les clés primaires des deux entités associées (composent la clé primaire composite),
+  - Éventuellement des attributs spécifiques à la relation (ex. : `date_debut`, `statut`).
+- Exemple : `Apprenant` ↔ `Formation` → Table `Inscription`.
+
+### 4. **Attributs composés / multivalués → Normalisation**
+- Aucun attribut composé n’est présent ici → pas besoin de décomposition.
+- Toutes les colonnes sont atomiques → conforme à la 1NF.
+
+---
+
+## 🗃️ Tables du MLD (avec explications)
+
+### 1. `Formateur`
+- **Clé primaire** : `id_formateur`
+- **Attributs** : `nom`, `specialite`
+- **Rôle** : Gère les formateurs qui animent les formations.
+- **Cardinalité** : 1 Formateur → N Formations (via `Formation.id_formateur`)
+
+### 2. `Formation`
+- **Clé primaire** : `id_formation`
+- **Attributs** : `titre`, `niveau`, `duree`
+- **Clé étrangère** : `id_formateur` → référence `Formateur.id_formateur`
+- **Rôle** : Décrit chaque formation offerte sur la plateforme.
+- **Cardinalité** : 1 Formation → N Séquences (via `Sequence.id_formation`)
+
+### 3. `Sequence`
+- **Clé primaire** : `id_seq`
+- **Attributs** : `titre`, `duree`
+- **Clés étrangères** :
+  - `id_formation` → référence `Formation.id_formation`
+  - *(Note : `id_formateur` a été supprimé pour éviter la redondance — car déjà accessible via `Formation`)*
+- **Rôle** : Découpe pédagogique d’une formation en modules.
+- **Cardinalité** : 1 Sequence → 1 Evaluation (via `Evaluation.id_seq`)
+
+### 4. `Apprenant`
+- **Clé primaire** : `id_apprenant`
+- **Attributs** : `nom`, `email`, `date_inscription`
+- **Rôle** : Stocke les informations des apprenants inscrits.
+- **Cardinalité** : 1 Apprenant → N Inscriptions, N Paiements, N Avis, N Evaluations
+
+### 5. `Inscription` (Table d’association N:N)
+- **Clé primaire composite** : `(id_apprenant, id_formation)`
+- **Clés étrangères** :
+  - `id_apprenant` → `Apprenant.id_apprenant`
+  - `id_formation` → `Formation.id_formation`
+- **Attributs** : `date_debut`, `statut`
+- **Rôle** : Lie un apprenant à une formation, avec un statut d’inscription.
+- **Cardinalité** : 1 Inscription → 1 Paiement, 1 Avis, 1 Evaluation (optionnels)
+
+### 6. `Paiement`
+- **Clé primaire** : `id_paiement`
+- **Clés étrangères** :
+  - `id_apprenant` → `Apprenant.id_apprenant`
+  - `id_formation` → `Formation.id_formation`
+- **Attributs** : `montant`, `date_paiement`, `statut`, `ref_paiement`
+- **Rôle** : Gère les transactions financières liées à une inscription.
+- **Contrainte** : `statut` peut être ‘Payé’, ‘En attente’, ‘Échoué’
+
+### 7. `Avis`
+- **Clé primaire** : `id_avis`
+- **Clés étrangères** :
+  - `id_apprenant` → `Apprenant.id_apprenant`
+  - `id_formation` → `Formation.id_formation`
+- **Attributs** : `note_avis` (1–5), `commentaire`
+- **Rôle** : Collecte les retours qualitatifs des apprenants sur les formations.
+
+### 8. `Evaluation`
+- **Clé primaire** : `id_eval`
+- **Clés étrangères** :
+  - `id_apprenant` → `Apprenant.id_apprenant`
+  - `id_formation` → `Formation.id_formation`
+  - `id_seq` → `Sequence.id_seq`
+- **Attributs** : `note` (0–20), `date_eval`
+- **Rôle** : Note obtenue par un apprenant lors d’une séquence.
+- **Contrainte** : `note` entre 0 et 20.
+
+---
+
+## 🔄 Cardinalités et Relations (Résumé)
+
+| Relation | Entité 1 → Entité 2 | Type | Clé étrangère |
+|----------|---------------------|------|---------------|
+| Formateur → Formation | 1,N | 1:N | `Formation.id_formateur` |
+| Formation → Sequence | 1,N | 1:N | `Sequence.id_formation` |
+| Apprenant → Inscription | 1,N | N:N via `Inscription` | `Inscription.id_apprenant` |
+| Formation → Inscription | 1,N | N:N via `Inscription` | `Inscription.id_formation` |
+| Apprenant → Paiement | 1,N | 1:N | `Paiement.id_apprenant` |
+| Formation → Paiement | 1,N | 1:N | `Paiement.id_formation` |
+| Apprenant → Avis | 1,N | 1:N | `Avis.id_apprenant` |
+| Formation → Avis | 1,N | 1:N | `Avis.id_formation` |
+| Apprenant → Evaluation | 1,N | 1:N | `Evaluation.id_apprenant` |
+| Formation → Evaluation | 1,N | 1:N | `Evaluation.id_formation` |
+| Sequence → Evaluation | 1,N | 1:N | `Evaluation.id_seq` |
+
+---
+
+## 🧹 Normalisation (1NF, 2NF, 3NF)
+
+✅ **1NF** : Toutes les colonnes sont atomiques — aucune liste ni valeur multiple.
+
+✅ **2NF** : Toutes les tables ont une clé primaire, et les attributs non-clés dépendent *entièrement* de cette clé (pas de dépendance partielle).
+
+✅ **3NF** : Aucune dépendance transitive — aucun attribut non-clé ne dépend d’un autre attribut non-clé.
+
+> ✅ **Exemple** : Dans `Sequence`, `id_formateur` a été supprimé car il dépendait de `id_formation`, ce qui créait une dépendance transitive → suppression pour atteindre la 3NF.
+
+---
+
+## 💡 Notes Pédagogiques & Choix de Conception
+
+- **Suppression de `id_formateur` dans `Sequence`** :  
+  Pour éviter la redondance et garantir la cohérence. Si une séquence change de formateur, il faut modifier la formation parente — ce qui est logique métier.
+
+- **Clé primaire composite dans `Inscription`** :  
+  Permet de garantir qu’un apprenant ne peut s’inscrire qu’une fois à une même formation.
+
+- **Gestion des paiements et avis optionnels** :  
+  Utilisation de `LEFT JOIN` dans les requêtes analytiques pour inclure les apprenants sans paiement ou sans avis.
+
+- **Sécurité des données** :  
+  Ajout de contraintes (`CHECK` sur `note_avis`, `note`) pour garantir la validité des données entrantes.
+
+---
+
+## 📌 Prochaines étapes
+
+- Implémenter ce MLD en SQL via `01_schema.sql`
+- Peupler avec des données réalistes via `02_seed_data.sql`
+- Interroger via `03_analytics_queries.sql` pour extraire les KPIs métier
+
+> 🌱 *Ce modèle suit les bonnes pratiques de conception relationnelle et est optimisé pour la performance et la maintenabilité — un atout pour toute plateforme e-learning professionnelle.*
